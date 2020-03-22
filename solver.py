@@ -13,22 +13,24 @@ START_DATE = {
   'Japan': '1/22/20',
   'Italy': '1/31/20',
   'Republic of Korea': '1/22/20',
-  'Iran (Islamic Republic of)': '2/19/20'
+  'Iran (Islamic Republic of)': '2/19/20',
+  'Australia':'1/26/20'
 }
 
 class Learner(object):
-    def __init__(self, country, loss):
+    def __init__(self, country, state, loss):
         self.country = country
+        self.state = state
         self.loss = loss
 
-    def load_confirmed(self, country):
-      df = pd.read_csv('data/time_series_19-covid-Confirmed.csv')
-      country_df = df[df['Country/Region'] == country]
+    def load_confirmed(self, country, state = None):
+      df = pd.read_csv('data/time_series_2019-ncov-Confirmed.csv')
+      country_df =  df[(df['Country/Region'] == country) & (df['Province/State'] == state)] if state != None else df[df['Country/Region'] == country]
       return country_df.iloc[0].loc[START_DATE[country]:]
 
-    def load_recovered(self, country):
-      df = pd.read_csv('data/time_series_19-covid-Recovered.csv')
-      country_df = df[df['Country/Region'] == country]
+    def load_recovered(self, country, state = None):
+      df = pd.read_csv('data/time_series_2019-ncov-Recovered.csv')
+      country_df =  df[(df['Country/Region'] == country) & (df['Province/State'] == state)] if state != None else df[df['Country/Region'] == country]
       return country_df.iloc[0].loc[START_DATE[country]:]
 
     def extend_index(self, index, new_size):
@@ -53,8 +55,8 @@ class Learner(object):
         return new_index, extended_actual, extended_recovered, solve_ivp(SIR, [0, size], [S_0,I_0,R_0], t_eval=np.arange(0, size, 1))
 
     def train(self):
-        data = self.load_confirmed(self.country)
-        recovered = self.load_recovered(self.country)
+        data = self.load_confirmed(self.country, state=self.state)
+        recovered = self.load_recovered(self.country, state=self.state)
         optimal = minimize(loss, [0.001, 0.001], args=(data, recovered), method='L-BFGS-B', bounds=[(0.00000001, 0.4), (0.00000001, 0.4)])
         print(optimal)
         beta, gamma = optimal.x
@@ -64,7 +66,7 @@ class Learner(object):
         ax.set_title(self.country)
         df.plot(ax=ax)
         print(f"country={self.country}, beta={beta:.8f}, gamma={gamma:.8f}, r_0:{(beta/gamma):.8f}")
-        fig.savefig(f"{self.country}.png")
+        fig.savefig(f"{self.country}-{self.state}.png")
 
 def loss(point, data, recovered):
     size = len(data)
@@ -80,11 +82,15 @@ def loss(point, data, recovered):
     alpha = 0.1
     return alpha * l1 + (1 - alpha) * l2
 
-learner = Learner('Japan', loss)
+# learner = Learner('Japan', loss)
+# learner.train()
+# learner = Learner('Republic of Korea', loss)
+# learner.train()
+# learner = Learner('Italy', loss)
+# learner.train()
+# learner = Learner('Iran (Islamic Republic of)', loss)
+# learner.train()
+learner = Learner('Australia','Victoria',loss)
 learner.train()
-learner = Learner('Republic of Korea', loss)
-learner.train()
-learner = Learner('Italy', loss)
-learner.train()
-learner = Learner('Iran (Islamic Republic of)', loss)
+learner = Learner('Australia','New South Wales',loss)
 learner.train()
